@@ -2,5 +2,5 @@
 
 
 ```
-./setup-sh
+uv run python helloworld.py
 ```

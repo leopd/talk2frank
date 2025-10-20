@@ -5,6 +5,11 @@ from DMXEnttecPro import Controller
 dmx = Controller('/dev/ttyUSB0', auto_submit=True)  # adjust port as needed
 
 
+print("Setting everything to 128")
+for ch in range(1,500):
+    dmx.set_channel(ch, 128)
+print("Done with 128 init")
+
 try:
     offset = 0
     while True:
