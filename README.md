@@ -21,6 +21,12 @@ including:
 ola_dev_info
 ```
 
+The script `allchantest.py` can help you figure out if you have anything working.  It'll blast 
+through all the channels and then back to 0.
+
+```
+uv run python allchantest.py
+```
 
 
 
