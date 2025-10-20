@@ -5,7 +5,6 @@ import requests
 
 from ola import OlaDMXUniverse
 
-
 dmx = OlaDMXUniverse(universe=0)
 
 try:
