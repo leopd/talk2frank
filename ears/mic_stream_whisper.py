@@ -153,9 +153,6 @@ def main():
 
                 buf = np.concatenate((buf, newbuf))
 
-                if buf.size > need * 2:
-                    buf = buf[-need:]
-
                 if buf.size >= need:
                     chunk = buf[-need:]
                     start_time = time.time()
@@ -173,8 +170,12 @@ def main():
                         print(text, flush=True)
                     else:
                         mean_square = np.mean(np.square(chunk))
-                        rms_db = -120.0 if mean_square <= 0 else 20 * np.log10(mean_square ** 0.5)
-                        print(f"Nothing transcribed.  RMS: {rms_db:.2f}dB")
+                        if mean_square <= 0:
+                            volume = "(silent - no audio)"
+                        else:
+                            rms_db = 20 * np.log10(mean_square ** 0.5)
+                            volume = f"{rms_db:.2f}dB"
+                        print(f"Nothing transcribed.  Volume: {volume}")
 
                     buf = buf[-need:]
                 else:
