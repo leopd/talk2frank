@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments for the Whisper microphone streaming demo."""
 
     parser = argparse.ArgumentParser(description="Stream microphone audio into Whisper.")
-    parser.add_argument("--model", default="small", help="Name of the Whisper model to load.")
+    parser.add_argument("--model", default="tiny.en", help="Name of the Whisper model to load.")
     parser.add_argument("--device", default="cuda", help="Device for inference, for example 'cuda' or 'cpu'.")
     parser.add_argument(
         "--dtype",
@@ -117,7 +117,7 @@ def main():
         list_devices()
         return
 
-    buf = np.zeros((0, 1), dtype=np.float32)
+    buf = np.zeros(0, dtype=np.float32)
     with sd.InputStream(
         channels=1,
         samplerate=args.sample_rate,
@@ -129,8 +129,12 @@ def main():
         print("Listening. Ctrl+C to stop.")
         if args.sample_rate != WHISPER_SAMPLE_RATE:
             audio_resample_factor = int(round(args.sample_rate / WHISPER_SAMPLE_RATE))
-            if audio_resample_factor * args.sample_rate != WHISPER_SAMPLE_RATE:
-                print(f"Warning! Whisper will hear {args.sample_rate / audio_resample_factor:.1f}Hz, not {WHISPER_SAMPLE_RATE}Hz")
+            adjusted_rate = args.sample_rate / audio_resample_factor
+            if abs(adjusted_rate - WHISPER_SAMPLE_RATE) > 1:
+                print(
+                    f"Warning! Downsampling by an integer stride gives {adjusted_rate:.1f} Hz, "
+                    f"not the expected {WHISPER_SAMPLE_RATE} Hz"
+                )
         else:
             audio_resample_factor = 1
 
@@ -140,25 +144,39 @@ def main():
                 start_time = time.time()
                 newbuf = listener.q.get()
                 elapsed = time.time() - start_time
+
+                newbuf = np.asarray(newbuf, dtype=np.float32).reshape(-1)
                 if audio_resample_factor > 1:
                     newbuf = newbuf[::audio_resample_factor]
+
                 print(f"Capture time: {elapsed*1000:.2f}ms   ", end="")
-                buf = np.concatenate([buf, newbuf])
+
+                buf = np.concatenate((buf, newbuf))
+
+                if buf.size > need * 2:
+                    buf = buf[-need:]
+
                 if buf.size >= need:
                     chunk = buf[-need:]
                     start_time = time.time()
                     segments, _ = listener.model.transcribe(
-                        chunk, beam_size=1, vad_filter=True,
-                        vad_parameters=dict(min_silence_duration_ms=250)
+                        chunk,
+                        beam_size=1,
+                        vad_filter=True,
+                        vad_parameters=dict(min_silence_duration_ms=250),
                     )
                     elapsed = time.time() - start_time
                     print(f"Transcription time: {elapsed*1000:.2f}ms   ", end="")
+
                     text = "".join(s.text for s in segments).strip()
                     if text:
                         print(text, flush=True)
                     else:
-                        rms_db = 20 * np.log10(np.mean(newbuf**2))
+                        mean_square = np.mean(np.square(chunk))
+                        rms_db = -120.0 if mean_square <= 0 else 20 * np.log10(mean_square ** 0.5)
                         print(f"Nothing transcribed.  RMS: {rms_db:.2f}dB")
+
+                    buf = buf[-need:]
                 else:
                     print(f"Buffering... {buf.size} / {need}")
         except KeyboardInterrupt:
