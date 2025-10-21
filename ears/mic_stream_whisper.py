@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import logging
 import queue
 import sys
 import time
@@ -9,6 +10,8 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import numpy as np
 import sounddevice as sd
 from faster_whisper import WhisperModel
+
+logger = logging.getLogger(__name__)
 
 WHISPER_SAMPLE_RATE = 16000
 CHECKED_SAMPLE_RATES = (
@@ -252,10 +255,10 @@ def main():
     if streamer.resample_warning:
         print(streamer.resample_warning)
 
-    print("Listening. Ctrl+C to stop.")
+    logger.info("Listening. Ctrl+C to stop.")
     for result in streamer.stream_events():
         if result.inference_ms is None:
-            print(
+            logger.info(
                 f"Capture time: {result.capture_ms:.2f}ms   "
                 f"Buffering... {result.buffered_samples} / {result.required_samples}"
             )
@@ -266,13 +269,15 @@ def main():
             f"Transcription time: {result.inference_ms:.2f}ms   "
         )
         if result.transcript:
-            print(f"{message}{result.transcript}", flush=True)
+            logger.debug(message)
+            print(f"{result.transcript}", flush=True)
         else:
             volume = "(silent - no audio)"
             if result.rms_db is not None:
                 volume = f"{result.rms_db:.2f}dB"
-            print(f"{message}Nothing transcribed.  Volume: {volume}")
+            logger.debug(f"{message} Nothing transcribed.  Volume: {volume}")
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.WARNING, stream=sys.stdout)
     main()

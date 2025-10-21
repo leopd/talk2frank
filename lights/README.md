@@ -1,35 +1,41 @@
-## DMX setup
+# DMX Light setup
 
+## Installing OLA
 
-### Installing OLA
+You're gonna need OLA = Open Lighting Architecture. You can install it with:  `./setup.sh`.
 
-You're gonna need OLA = Open Lighting Architecture. You can install it with:
+Then if you're magically lucky you can run `uv run python allchantest.py` and see things work.  
+It'll blast through all the channels and then back to 0.  If lights change, great.  If not, see Troubleshooting below.
+
+## Defining your lights
+
+You can define your lights in a yaml file.  For example named `constellation.yaml`:
 
 ```
-sudo apt install ola
-sudo systemctl enable --now olad
+lights:
+  - name: "light1"
+    channel: 1
 ```
 
-### Configuring OLA
+## Troubleshooting / Configuring OLA
 
 This can take a while.  You'll need to edit the files in `/etc/ola/*.conf` and run a bunch of diagnostics
 including:
 
 ```
 ola_dev_info
+ola_uni_info
+ola_dmxconsole
+sudo journalctl -u olad -f
 ```
 
-I ended up setting `enabled = false` for everything except `ola-ftdidmx.conf`, and that was was configured as:
-```
-enabled = true
-frequency = 30
-device = /dev/serial/by-id/usb-FTDI_FT232R_USB_UART_B0010UH8-if00-port0
-```
+Try editing the files in `/etc/ola/*.conf` - try setting `ola-usbserial.conf` or `ola-ftdidmx.conf` to `enabled = true` and point them to the USB device as `/dev/serial/by-id/usb-*` and then `sudo systemctl restart olad`.
+Maybe set `enabled = false` for everything else.
 
-The script `allchantest.py` can help you figure out if you have anything is listening.  It'll blast 
-through all the channels and then back to 0.
+and you might have to patch a device to a universe like:
 
 ```
-uv run python allchantest.py
+ola_patch --device 5 --port 0 --universe 0
 ```
 
+Also make sure the lights are in DMX mode - especially the first one you're plugging in to.

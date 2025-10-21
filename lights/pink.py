@@ -1,9 +1,14 @@
-from ola import OlaDMXUniverse
-from ola import Light
+import time
+
+from ola import Light, OlaDMXUniverse
+from constellation import Constellation
 
 dmx = OlaDMXUniverse()
-light1 = Light(dmx, 1)
-light2 = Light(dmx, 9)
+constellation = Constellation(dmx=dmx)
 
-light1.color("pink")
-light2.color("pink")
+for name, light in constellation.lights.items():
+    print(f"Setting {name} to pink")
+    light.color("pink")
+    time.sleep(1)
+
+print("Done")

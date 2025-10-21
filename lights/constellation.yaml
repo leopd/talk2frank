@@ -1,0 +1,10 @@
+
+lights:
+  - name: "left1"
+    channel: 1
+  - name: "left2"
+    channel: 9
+  - name: "right1"
+    channel: 17
+  - name: "right2"
+    channel: 25
