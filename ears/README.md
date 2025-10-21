@@ -27,3 +27,5 @@ You need to configure a microphone.  Use the `--list-devices` option to see what
 python mic_stream_whisper.py --list-devices
 ```
 
+
+

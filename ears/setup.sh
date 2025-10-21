@@ -21,5 +21,7 @@ systemctl --user start pipewire.service pipewire-pulse.service
 systemctl --user status pipewire.service pipewire-pulse.service
 systemctl --user enable --now pipewire.socket pipewire-pulse.socket wireplumber.service
 
+sudo usermod -aG audio $USER
+
 sudo apt install -y libcudnn9-cuda-13 libcudnn9-dev-cuda-13
 

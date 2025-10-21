@@ -42,7 +42,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-rate", type=int, default=16000, help="Audio sample rate in Hertz.")
     parser.add_argument("--block-ms", type=int, default=30, help="Block size in milliseconds.")
     parser.add_argument("--window-ms", type=int, default=2000, help="Sliding window size in milliseconds.")
-    parser.add_argument("--input-device", type=str, help="Input device name or index for PortAudio.")
+    parser.add_argument("--input-device", type=int, help="Input device index for PortAudio.")
     parser.add_argument(
         "--list-devices",
         action="store_true",
