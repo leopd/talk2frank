@@ -111,7 +111,13 @@ def main():
     """Capture microphone audio and stream transcription results to stdout."""
 
     args = parse_args()
-    listener = WhisperListener(args.model, args.device, args.dtype)
+    try:
+        listener = WhisperListener(args.model, args.device, args.dtype)
+    except Exception as e:
+        print(f"Error loading model: {e}")
+        print(f"Available models: tiny, tiny.en, base, base.en, small, small.en, medium, medium.en, large-v3-turbo")
+        print(f"Maybe others?  Check docs at https://github.com/guillaumekln/faster-whisper")
+        sys.exit(1)
 
     if args.list_devices:
         list_devices()
