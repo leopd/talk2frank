@@ -26,7 +26,7 @@ cd ears
 ## Ears + Lights Demo
 
 ```
-uv run ../ears/mic_stream_whisper.py | uv run twinkler.py black
+./earlight.sh
 ```
 
 and then try saying "fire" or "black" or "water".
