@@ -103,13 +103,7 @@ class TwinkleLight:
         with self._lock:
             validated_config = self.validate_config(config)
             self.config = validated_config
-            base_hsv = self.mid_hsv()
-            self._old_hsv = base_hsv
-            self._target_hsv = base_hsv
-            self._start_time = time.time()
-            self._target_time = self._start_time
-            self._schedule_new_target_locked()
-        self.light.hsv(base_hsv[0], base_hsv[1], base_hsv[2])
+            # Don't change the light's current value immediately - wait until the next cycle.
 
 class TwinkleConfigs:
     def __init__(self, config_fn: str = "twinkles.yaml"):
