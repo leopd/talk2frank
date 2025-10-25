@@ -54,7 +54,10 @@ class VisionLanguageModel:
         if hasattr(output_ids, "sequences"):
             output_ids = output_ids.sequences
         
-        result = self.processor.batch_decode(output_ids.cpu(), skip_special_tokens=True)[0]
+        output_ids = output_ids.cpu()
+        output_ids[output_ids == -1] = 0
+        
+        result = self.processor.batch_decode(output_ids, skip_special_tokens=True)[0]
         return result
 
 
@@ -96,7 +99,9 @@ def main():
             parser.error(f"Prompt file not found: {args.prompt_file}")
         prompt = prompt_path.read_text().strip()
     
+    print(f"Image: {args.image}")
     print(f"Prompt: {prompt[:100]}..." if len(prompt) > 100 else f"Prompt: {prompt}")
+    print()
     
     # Load model and run inference
     vlm = VisionLanguageModel(model_name=args.model)
