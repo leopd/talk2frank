@@ -18,6 +18,7 @@ class VisionLanguageModel:
             dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
+            attn_implementation="eager",  # disable flash attention
         )
         print(f"Model loaded on device: {self.model.device}")
 
