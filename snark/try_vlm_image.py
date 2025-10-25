@@ -5,7 +5,8 @@ from typing import Optional
 
 import torch
 import PIL.Image as Image
-from transformers import AutoConfig, AutoModelForCausalLM, AutoProcessor
+from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+from qwen_vl_utils import process_vision_info
 
 try:
     import flash_attn
@@ -15,11 +16,11 @@ except ImportError:
 
 
 class VisionLanguageModel:
-    """Wrapper for vision-language models for image understanding tasks."""
+    """Wrapper for a vision-language model like Qwen2.5-VL."""
 
-    def __init__(self, model_name: str = "microsoft/Phi-3.5-vision-instruct", flash_attn: str = "off"):
+    def __init__(self, model_name: str = "Qwen/Qwen2.5-VL-7B-Instruct", flash_attn: str = "off"):
         """
-        Load the vision-language model and processor.
+        Load the Qwen2.5-VL model and processor.
         
         Args:
             model_name: Model name or path
@@ -44,14 +45,10 @@ class VisionLanguageModel:
                 attn_impl = "eager"
                 print(f"Flash Attention not available, using standard attention (eager)")
         
-        config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-        config._attn_implementation = attn_impl
-        
         self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
-        self.model = AutoModelForCausalLM.from_pretrained(
+        self.model = Qwen2VLForConditionalGeneration.from_pretrained(
             model_name,
-            config=config,
-            dtype=torch.bfloat16,
+            torch_dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
             attn_implementation=attn_impl,
@@ -70,35 +67,57 @@ class VisionLanguageModel:
         Returns:
             Generated text response from the model
         """
+        # Build messages in Qwen2.5-VL format
         if image_path:
-            img = Image.open(image_path)
-            print(f"Loaded image resolution: {img.size}")
-            
-            if "<|image_1|>" not in prompt:
-                prompt = f"<|image_1|>\n{prompt}"
-            
-            print(f"Preprocessing...")
-            inputs = self.processor(images=img, text=prompt, return_tensors="pt").to(self.model.device)
+            print(f"Loading image: {image_path}")
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image_path},
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ]
         else:
             print(f"Text-only mode (no image)")
-            print(f"Preprocessing...")
-            inputs = self.processor(text=prompt, return_tensors="pt").to(self.model.device)
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ]
+        
+        print(f"Preprocessing...")
+        text_prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+        image_inputs, video_inputs = process_vision_info(messages)
+        
+        inputs = self.processor(
+            text=[text_prompt],
+            images=image_inputs,
+            videos=video_inputs,
+            padding=True,
+            return_tensors="pt",
+        ).to(self.model.device)
         
         print(f"Generating output...")
-        output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens, use_cache=False)
+        output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
         
-        if hasattr(output_ids, "sequences"):
-            output_ids = output_ids.sequences
+        generated_ids = [
+            output_ids[len(input_ids):]
+            for input_ids, output_ids in zip(inputs.input_ids, output_ids)
+        ]
         
-        output_ids = output_ids.cpu()
-        output_ids[output_ids == -1] = 0
-        
-        result = self.processor.batch_decode(output_ids, skip_special_tokens=True)[0]
+        result = self.processor.batch_decode(
+            generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
+        )[0]
         return result
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run Phi-3.5 Vision model inference")
+    parser = argparse.ArgumentParser(description="Run Qwen2.5-VL vision model inference")
     parser.add_argument(
         "--image",
         type=str,
@@ -124,8 +143,8 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="microsoft/Phi-3.5-vision-instruct",
-        help="Model name or path (default: microsoft/Phi-3.5-vision-instruct)",
+        default="Qwen/Qwen2.5-VL-7B-Instruct",
+        help="Model name or path (default: Qwen/Qwen2.5-VL-7B-Instruct)",
     )
     parser.add_argument(
         "--flash-attn",
