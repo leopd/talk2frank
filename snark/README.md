@@ -1,4 +1,11 @@
-# SNark
+# Snark - the so-called "brains" of the operation
+
+
+## Testing
+
+```
+uv run pytest
+```
 
 ## Installing flash-attn
 

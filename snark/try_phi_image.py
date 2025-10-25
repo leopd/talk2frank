@@ -1,21 +1,51 @@
 import argparse
 import sys
 from pathlib import Path
+from typing import Optional
 
 import torch
 import PIL.Image as Image
 from transformers import AutoConfig, AutoModelForCausalLM, AutoProcessor
 
+try:
+    import flash_attn
+    FLASH_ATTN_AVAILABLE = True
+except ImportError:
+    FLASH_ATTN_AVAILABLE = False
+
 
 class VisionLanguageModel:
     """Wrapper for vision-language models for image understanding tasks."""
 
-    def __init__(self, model_name: str = "microsoft/Phi-3.5-vision-instruct"):
-        """Load the vision-language model and processor."""
+    def __init__(self, model_name: str = "microsoft/Phi-3.5-vision-instruct", flash_attn: str = "off"):
+        """
+        Load the vision-language model and processor.
+        
+        Args:
+            model_name: Model name or path
+            flash_attn: Flash attention mode - "on", "off", or "auto"
+        """
         print(f"Loading model {model_name}...")
         
+        # Determine attention implementation
+        if flash_attn == "on":
+            if not FLASH_ATTN_AVAILABLE:
+                raise RuntimeError("Flash attention requested but not installed. Install with: uv add flash-attn --no-build-isolation")
+            attn_impl = "flash_attention_2"
+            print(f"Using Flash Attention 2")
+        elif flash_attn == "off":
+            attn_impl = "eager"
+            print(f"Using standard attention (eager)")
+        else:
+            if FLASH_ATTN_AVAILABLE:
+                attn_impl = "flash_attention_2"
+                print(f"Flash Attention detected and enabled")
+            else:
+                attn_impl = "eager"
+                print(f"Flash Attention not available, using standard attention (eager)")
+        
         config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
-        config._attn_implementation = "eager"
+        config._attn_implementation = attn_impl
         
         self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
         self.model = AutoModelForCausalLM.from_pretrained(
@@ -24,11 +54,11 @@ class VisionLanguageModel:
             dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
-            attn_implementation="eager",  # disable flash attention
+            attn_implementation=attn_impl,
         )
         print(f"Model loaded on device: {self.model.device}")
 
-    def infer(self, prompt: str, image_path: str = None, max_new_tokens: int = 200) -> str:
+    def infer(self, prompt: str, image_path: Optional[str] = None, max_new_tokens: int = 200) -> str:
         """
         Run inference with text prompt and optional image.
         
@@ -97,6 +127,13 @@ def main():
         default="microsoft/Phi-3.5-vision-instruct",
         help="Model name or path (default: microsoft/Phi-3.5-vision-instruct)",
     )
+    parser.add_argument(
+        "--flash-attn",
+        type=str,
+        choices=["on", "off", "auto"],
+        default="auto",
+        help="Flash attention mode: on (require), off (disable), auto (use if available). Default: auto",
+    )
     
     args = parser.parse_args()
     
@@ -126,7 +163,7 @@ def main():
     print()
     
     # Load model and run inference
-    vlm = VisionLanguageModel(model_name=args.model)
+    vlm = VisionLanguageModel(model_name=args.model, flash_attn=args.flash_attn)
     result = vlm.infer(prompt, image_path=image_path, max_new_tokens=args.max_tokens)
     
     print("\n--- Output ---")
