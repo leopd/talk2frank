@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 import torch
@@ -27,26 +28,31 @@ class VisionLanguageModel:
         )
         print(f"Model loaded on device: {self.model.device}")
 
-    def infer(self, image_path: str, prompt: str, max_new_tokens: int = 200) -> str:
+    def infer(self, prompt: str, image_path: str = None, max_new_tokens: int = 200) -> str:
         """
-        Run inference on an image with the given prompt.
+        Run inference with text prompt and optional image.
         
         Args:
-            image_path: Path to the input image
-            prompt: Text prompt for the model (will prepend <|image_1|> if not present)
+            prompt: Text prompt for the model
+            image_path: Optional path to the input image
             max_new_tokens: Maximum number of tokens to generate
             
         Returns:
             Generated text response from the model
         """
-        img = Image.open(image_path)
-        print(f"Loaded image resolution: {img.size}")
-        
-        if "<|image_1|>" not in prompt:
-            prompt = f"<|image_1|>\n{prompt}"
-        
-        print(f"Preprocessing...")
-        inputs = self.processor(images=img, text=prompt, return_tensors="pt").to(self.model.device)
+        if image_path:
+            img = Image.open(image_path)
+            print(f"Loaded image resolution: {img.size}")
+            
+            if "<|image_1|>" not in prompt:
+                prompt = f"<|image_1|>\n{prompt}"
+            
+            print(f"Preprocessing...")
+            inputs = self.processor(images=img, text=prompt, return_tensors="pt").to(self.model.device)
+        else:
+            print(f"Text-only mode (no image)")
+            print(f"Preprocessing...")
+            inputs = self.processor(text=prompt, return_tensors="pt").to(self.model.device)
         
         print(f"Generating output...")
         output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens, use_cache=False)
@@ -62,18 +68,22 @@ class VisionLanguageModel:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run Phi-3.5 Vision model inference on an image")
-    parser.add_argument("image", type=str, help="Path to input image")
+    parser = argparse.ArgumentParser(description="Run Phi-3.5 Vision model inference")
     parser.add_argument(
-        "--prompt",
+        "--image",
         type=str,
-        help="Text prompt for the model (if not provided, reads from prompt.txt)",
+        help="Path to input image (uses standard prompt from file)",
+    )
+    parser.add_argument(
+        "--textin",
+        action="store_true",
+        help="Read prompt text from stdin (text-only mode, no image)",
     )
     parser.add_argument(
         "--prompt-file",
         type=str,
         default="prompt.txt",
-        help="Path to file containing prompt text (default: prompt.txt)",
+        help="Path to file containing standard prompt (default: prompt.txt)",
     )
     parser.add_argument(
         "--max-tokens",
@@ -90,22 +100,34 @@ def main():
     
     args = parser.parse_args()
     
-    # Determine prompt source
-    if args.prompt:
-        prompt = args.prompt
-    else:
+    # Validate mode: either --image OR --textin
+    if args.image and args.textin:
+        parser.error("Cannot use both --image and --textin. Choose one mode.")
+    if not args.image and not args.textin:
+        parser.error("Must provide either --image or --textin")
+    
+    # Determine mode and get prompt
+    if args.image:
         prompt_path = Path(args.prompt_file)
         if not prompt_path.exists():
             parser.error(f"Prompt file not found: {args.prompt_file}")
         prompt = prompt_path.read_text().strip()
+        image_path = args.image
+        print(f"Mode: Image processing")
+        print(f"Image: {args.image}")
+    else:
+        print(f"Enter your prompt:")
+        prompt = sys.stdin.readline().strip()
+        print(f"Got prompt: {prompt}")
+        image_path = None
+        print(f"Mode: Text-only")
     
-    print(f"Image: {args.image}")
-    print(f"Prompt: {prompt[:100]}..." if len(prompt) > 100 else f"Prompt: {prompt}")
+    print(f"Prompt: {prompt[:100]}...")
     print()
     
     # Load model and run inference
     vlm = VisionLanguageModel(model_name=args.model)
-    result = vlm.infer(args.image, prompt, max_new_tokens=args.max_tokens)
+    result = vlm.infer(prompt, image_path=image_path, max_new_tokens=args.max_tokens)
     
     print("\n--- Output ---")
     print(result)
