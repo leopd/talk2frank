@@ -3,7 +3,7 @@ from pathlib import Path
 
 import torch
 import PIL.Image as Image
-from transformers import AutoModelForCausalLM, AutoProcessor
+from transformers import AutoConfig, AutoModelForCausalLM, AutoProcessor
 
 
 class VisionLanguageModel:
@@ -12,9 +12,14 @@ class VisionLanguageModel:
     def __init__(self, model_name: str = "microsoft/Phi-3.5-vision-instruct"):
         """Load the vision-language model and processor."""
         print(f"Loading model {model_name}...")
+        
+        config = AutoConfig.from_pretrained(model_name, trust_remote_code=True)
+        config._attn_implementation = "eager"
+        
         self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
+            config=config,
             dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
@@ -28,7 +33,7 @@ class VisionLanguageModel:
         
         Args:
             image_path: Path to the input image
-            prompt: Text prompt for the model
+            prompt: Text prompt for the model (will prepend <|image_1|> if not present)
             max_new_tokens: Maximum number of tokens to generate
             
         Returns:
@@ -37,13 +42,19 @@ class VisionLanguageModel:
         img = Image.open(image_path)
         print(f"Loaded image resolution: {img.size}")
         
+        if "<|image_1|>" not in prompt:
+            prompt = f"<|image_1|>\n{prompt}"
+        
         print(f"Preprocessing...")
         inputs = self.processor(images=img, text=prompt, return_tensors="pt").to(self.model.device)
         
         print(f"Generating output...")
-        output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
+        output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens, use_cache=False)
         
-        result = self.processor.batch_decode(output_ids, skip_special_tokens=True)[0]
+        if hasattr(output_ids, "sequences"):
+            output_ids = output_ids.sequences
+        
+        result = self.processor.batch_decode(output_ids.cpu(), skip_special_tokens=True)[0]
         return result
 
 

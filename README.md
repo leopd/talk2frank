@@ -5,6 +5,7 @@ Several components:
 - `lights/` - DMX lights
 - `ears/` - Whisper for speech recognition
 - `voice/` - Voice generation
+- `snark/` - LLM brains for snarking at passersby
 
 ## DMX setup
 
