@@ -5,7 +5,7 @@ from typing import Optional
 
 import torch
 import PIL.Image as Image
-from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 from qwen_vl_utils import process_vision_info
 
 try:
@@ -46,9 +46,9 @@ class VisionLanguageModel:
                 print(f"Flash Attention not available, using standard attention (eager)")
         
         self.processor = AutoProcessor.from_pretrained(model_name, trust_remote_code=True)
-        self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             model_name,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
             attn_implementation=attn_impl,
@@ -69,6 +69,12 @@ class VisionLanguageModel:
         """
         # Build messages in Qwen2.5-VL format
         if image_path:
+            # Resolve relative image paths to this module's directory for test stability
+            image_path_obj = Path(image_path)
+            if not image_path_obj.is_absolute() and not image_path_obj.exists():
+                candidate = Path(__file__).parent / image_path
+                if candidate.exists():
+                    image_path = str(candidate)
             print(f"Loading image: {image_path}")
             messages = [
                 {
@@ -92,15 +98,23 @@ class VisionLanguageModel:
         
         print(f"Preprocessing...")
         text_prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-        image_inputs, video_inputs = process_vision_info(messages)
+        vision_info = process_vision_info(messages)
+        if isinstance(vision_info, tuple) and len(vision_info) == 3:
+            image_inputs, video_inputs, audio_inputs = vision_info
+        else:
+            image_inputs, video_inputs = vision_info  # type: ignore[misc]
+            audio_inputs = None
         
-        inputs = self.processor(
-            text=[text_prompt],
-            images=image_inputs,
-            videos=video_inputs,
-            padding=True,
-            return_tensors="pt",
-        ).to(self.model.device)
+        processor_kwargs = {
+            "text": [text_prompt],
+            "images": image_inputs,
+            "videos": video_inputs,
+            "padding": True,
+            "return_tensors": "pt",
+        }
+        if audio_inputs is not None:
+            processor_kwargs["audios"] = audio_inputs
+        inputs = self.processor(**processor_kwargs).to(self.model.device)
         
         print(f"Generating output...")
         output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
