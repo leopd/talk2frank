@@ -16,7 +16,7 @@ See [lights/README.md](lights/README.md) for more details.
 
 See [ears/README.md](ears/README.md) for more details.
 
-Building whisper-cpp needs CUDA and a lot of RAM.  (At least 24GB - turn on swap!)
+Building whisper-cpp needs CUDA and a lot of RAM.  At least 24GB (CPU RAM) - turn on swap!
 
 ```
 cd ears
