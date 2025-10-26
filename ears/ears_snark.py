@@ -3,6 +3,7 @@ import argparse
 import io
 import os
 import sys
+import time
 import traceback
 from typing import Optional
 
@@ -30,6 +31,7 @@ def parse_args():
 
 
 def post_phrase_and_play(base_url: str, text: str):
+    start_time = time.time()
     url = f"{base_url.rstrip('/')}/infer/text"
     response = requests.post(
         url,
@@ -40,11 +42,12 @@ def post_phrase_and_play(base_url: str, text: str):
         },
         timeout=60,
     )
+    elapsed = time.time() - start_time
     if not response.ok:
         details = response.text[:256]
         ct = response.headers.get("Content-Type", "")
         raise RuntimeError(f"HTTP {response.status_code} from {url} (Content-Type: {ct}): {details}")
-    print(f"[snark] got response {response.status_code}")
+    print(f"[snark] response took {elapsed:.2f} seconds")
 
     audio_bytes = response.content
     wav_io = io.BytesIO(audio_bytes)
