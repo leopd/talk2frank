@@ -13,15 +13,17 @@ import soundfile as sf
 
 from .ear_guts import WhisperStreamer
 
+MAX_AUDIO_LENGTH_SECONDS = 20
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Stream mic, send phrases to snark server, play reply.")
-    parser.add_argument("--model", default="tiny.en", help="Whisper model name")
+    parser.add_argument("--model", default="small.en", help="Whisper model name")
     parser.add_argument("--device", default="cuda", help="Inference device: cuda or cpu")
     parser.add_argument("--dtype", default="float16", help="Compute precision for Whisper")
     parser.add_argument("--sample-rate", type=int, default=16000, help="Mic sample rate in Hz")
-    parser.add_argument("--block-ms", type=int, default=500, help="Audio block length in ms")
-    parser.add_argument("--window-ms", type=int, default=2000, help="Inference window length in ms")
+    parser.add_argument("--block-ms", type=int, default=700, help="Audio block length in ms")
+    parser.add_argument("--window-ms", type=int, default=2100, help="Inference window length in ms")
     parser.add_argument("--input-device", type=int, help="Input device index for PortAudio")
     parser.add_argument("--min-phrase-len", type=int, default=3, help="Minimum characters before sending")
     return parser.parse_args()
@@ -51,6 +53,10 @@ def post_phrase_and_play(base_url: str, text: str):
         audio_array = audio_array[:, 0]
 
     audio_length_seconds = audio_array.shape[0] / sample_rate
+    if audio_length_seconds > MAX_AUDIO_LENGTH_SECONDS:
+        # Clipping audio
+        audio_array = audio_array[:int(sample_rate * MAX_AUDIO_LENGTH_SECONDS)]
+        sample_rate = int(sample_rate * 10 / audio_array.shape[0])
     print(f"[snark] playing audio {audio_length_seconds:.1f} seconds")
     sd.play(audio_array, samplerate=sample_rate)
     sd.wait()
@@ -76,18 +82,23 @@ def main():
     )
 
     print("Listening. Ctrl+C to stop.")
-    for event in streamer.stream_events():
-        if not event.transcript:
-            continue
-        text = event.transcript.strip()
-        if len(text) < args.min_phrase_len:
-            continue
-        try:
-            print(f"[snark] captured: {text}")
-            post_phrase_and_play(snark_url, text)
-        except Exception as exc:
-            traceback.print_exc()
-            print(f"Error contacting snark server: {exc}", file=sys.stderr)
+    while True:
+        streamer.reset()
+        for event in streamer.stream_events(yield_blanks=True, quit_after_text_count=1):
+            if not event.transcript:
+                continue
+            text = event.transcript.strip()
+            print(f"[ears] captured raw: {text}")
+            if not text:
+                continue
+            if len(text) < args.min_phrase_len:
+                continue
+            try:
+                print(f"[ears] sending to snark server: {text}")
+                post_phrase_and_play(snark_url, text)
+            except Exception as exc:
+                traceback.print_exc()
+                print(f"Error contacting snark server: {exc}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -81,6 +81,14 @@ class WhisperStreamer:
         )
         return stride, warning
 
+    def reset(self) -> None:
+        """Clear any queued audio so the next streaming session starts fresh.
+
+        Replaces the internal queue to drop any audio that may have been
+        enqueued prior to starting a new call to `stream_events()`.
+        """
+        self.audio_queue = queue.Queue()
+
     def on_audio(self, indata: np.ndarray, frames: int, time_info: Any, status: Any):
         """Receive audio buffers from PortAudio and queue them for transcription."""
 
@@ -95,19 +103,24 @@ class WhisperStreamer:
             return samples
         return samples[::self.downsample_stride]
 
-    def stream_events(self) -> Iterable[StreamingResult]:
+    def _input_stream(self) -> sd.InputStream:
+        return sd.InputStream(
+            channels=1,
+            samplerate=self.sample_rate,
+            blocksize=self.block_frames,
+            dtype="float32",
+            callback=self.on_audio,
+            device=self.input_device,
+        )
+
+    def stream_events(self, yield_blanks:bool=True, quit_after_text_count:Optional[int]=None) -> Iterable[StreamingResult]:
         """Yield streaming results that include timing data and transcription text."""
 
         buffer = np.zeros(0, dtype=np.float32)
+        text_events_count = 0
+        print(f"[ears] Beginning new listening session")
         try:
-            with sd.InputStream(
-                channels=1,
-                samplerate=self.sample_rate,
-                blocksize=self.block_frames,
-                dtype="float32",
-                callback=self.on_audio,
-                device=self.input_device,
-            ):
+            with self._input_stream():
                 while True:
                     capture_start = time.perf_counter()
                     raw_chunk = self.audio_queue.get()
@@ -118,14 +131,7 @@ class WhisperStreamer:
                     buffer = np.concatenate((buffer, samples))
 
                     if buffer.size < self.window_samples:
-                        yield StreamingResult(
-                            capture_ms=capture_ms,
-                            buffered_samples=buffer.size,
-                            required_samples=self.window_samples,
-                            transcript=None,
-                            inference_ms=None,
-                            rms_db=None,
-                        )
+                        # Buffer not full yet - don't transcribe.
                         continue
 
                     buffer = buffer[-self.window_samples:]
@@ -144,6 +150,8 @@ class WhisperStreamer:
                         mean_square = float(np.mean(np.square(buffer)))
                         if mean_square > 0:
                             rms_db = 20 * np.log10(mean_square ** 0.5)
+                        if not yield_blanks:
+                            continue
 
                     yield StreamingResult(
                         capture_ms=capture_ms,
@@ -153,6 +161,11 @@ class WhisperStreamer:
                         inference_ms=inference_ms,
                         rms_db=rms_db,
                     )
+                    if text:
+                        text_events_count += 1
+                        if quit_after_text_count is not None and text_events_count >= quit_after_text_count:
+                            print(f"[ears] quitting after {text_events_count} text events")
+                            break
         except KeyboardInterrupt:
             return
 
