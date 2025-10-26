@@ -7,7 +7,7 @@
 uv run pytest
 ```
 
-## Server
+## Snark server
 
 Start the FastAPI server (single-threaded GPU usage):
 
@@ -25,6 +25,15 @@ curl -X POST http://<server-ip>:8000/infer/text \
   -F 'max_new_tokens=50'
 ```
 
+- Text-to-speech (WAV response):
+
+```
+curl -X POST http://<server-ip>:8000/infer/text \
+  -F 'prompt=Say hello to my little friend' \
+  -F 'response_format=wav' \
+  --output reply.wav
+```
+
 - Image via URL:
 
 ```
@@ -32,6 +41,16 @@ curl -X POST http://<server-ip>:8000/infer/image \
   -F 'prompt=Describe this image' \
   -F 'image_url=https://example.com/sample.jpg' \
   -F 'max_new_tokens=50'
+```
+
+- Image via URL to WAV:
+
+```
+curl -X POST http://<server-ip>:8000/infer/image \
+  -F 'prompt=Describe this image' \
+  -F 'image_url=https://example.com/sample.jpg' \
+  -F 'response_format=wav' \
+  --output reply.wav
 ```
 
 - Image via upload:
@@ -44,6 +63,8 @@ curl -X POST http://<server-ip>:8000/infer/image \
 ```
 
 Notes:
+- Set `response_format=wav` to receive an `audio/wav` response synthesized via TTS.
+- The server lazily loads TTS on first WAV request; initial call may be slower.
 - The model defaults to `Qwen/Qwen2.5-VL-7B-Instruct`.
 - File uploads require `python-multipart` (already listed as a dependency).
 

@@ -15,9 +15,20 @@ class StubVLM:
         return f"TXT:{prompt[:10]}:{max_new_tokens}"
 
 
+class StubTTS:
+    def synthesize_wav(self, text: str) -> bytes:
+        # Return a tiny valid WAV header with no data (RIFF minimal)
+        return (
+            b"RIFF" + (36).to_bytes(4, "little") + b"WAVEfmt " + (16).to_bytes(4, "little") + (1).to_bytes(2, "little")
+            + (1).to_bytes(2, "little") + (16000).to_bytes(4, "little") + (32000).to_bytes(4, "little")
+            + (2).to_bytes(2, "little") + (16).to_bytes(2, "little") + b"data" + (0).to_bytes(4, "little")
+        )
+
+
 def setup_function(_):
     # Patch the global getter to avoid loading real model
     server._vlm = StubVLM()  # type: ignore[assignment]
+    server._tts = StubTTS()  # type: ignore[assignment]
 
 
 def test_infer_text_endpoint():
@@ -60,5 +71,24 @@ def test_infer_image_missing_params():
     assert resp.status_code == 400
     body = resp.json()
     assert "Provide image_url or image_file" in body["error"]
+
+
+def test_infer_text_wav_response():
+    client = TestClient(server.app)
+    resp = client.post("/infer/text", data={"prompt": "hello", "response_format": "wav"})
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("audio/wav")
+    assert resp.content.startswith(b"RIFF")
+
+
+def test_infer_image_wav_response():
+    client = TestClient(server.app)
+    resp = client.post(
+        "/infer/image",
+        data={"prompt": "describe", "image_url": "https://example.com/img.jpg", "response_format": "wav"},
+    )
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("audio/wav")
+    assert resp.content.startswith(b"RIFF")
 
 
