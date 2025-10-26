@@ -37,8 +37,8 @@ class OlaDMXUniverse:
 
     def send(self, force: bool = False):
         """Send the current DMX buffer to OLA."""
+        now = time.time()
         if not force:
-            now = time.time()
             if now - self.last_send_time < 1.0 / self.max_fps:
                 return
         self.last_send_time = now
