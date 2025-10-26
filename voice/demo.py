@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 import random
 
-from TTS.api import TTS
 import numpy as np
 import sounddevice as sd
 import torch
-import torchaudio.functional as audio_fn
+from .tts_guts import TtsSynthesizer
 
 
 def demo_speakers(model_name: str, pitch_down_steps: int, sample_rate_factor: float, speed:float):
@@ -13,34 +12,20 @@ def demo_speakers(model_name: str, pitch_down_steps: int, sample_rate_factor: fl
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"Using device: {device}")
     print(f"downloading model {model_name}")
-    tts = TTS(model_name=model_name, progress_bar=False).to(device)
-
-    sample_rate = tts.synthesizer.output_sample_rate
+    synth = TtsSynthesizer(
+        model_name=model_name,
+        pitch_down_steps=pitch_down_steps,
+        distortion_gain=1.4,
+        output_sample_rate_factor=sample_rate_factor,
+    )
     text = "I am the monster hiding under your bed."
 
-    speaker_list = tts.speakers
+    speaker_list = synth.speakers
     random.shuffle(speaker_list)
     for speaker in speaker_list:
         print(f"Playing speaker: {speaker}")
-        
-        audio = tts.tts(
-            text=text,
-            speaker=speaker,
-            #speed=speed,
-            emotion="sad",
-        )
-        audio_array = np.array(audio, dtype=np.float32)
-        
-        waveform = torch.from_numpy(audio_array).unsqueeze(0)
-        pitched_waveform = audio_fn.pitch_shift(waveform, sample_rate, n_steps=pitch_down_steps)
-        distorted_waveform = torch.tanh(pitched_waveform * 1.4)
-        processed_audio = distorted_waveform.squeeze(0).numpy()
-        
-        max_amplitude = float(np.max(np.abs(processed_audio)))
-        if max_amplitude > 1:
-            processed_audio = processed_audio / max_amplitude
-        
-        sd.play(processed_audio, samplerate=sample_rate * sample_rate_factor)
+        audio_array, header_rate = synth.synthesize_array(text=text, speaker=speaker)
+        sd.play(audio_array, samplerate=header_rate)
         sd.wait()
 
 

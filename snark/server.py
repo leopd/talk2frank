@@ -1,6 +1,7 @@
 from io import BytesIO
 from pathlib import Path
 from typing import Optional
+from contextlib import asynccontextmanager
 
 import numpy as np
 import soundfile as sf
@@ -9,9 +10,7 @@ from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse, Response
 
 from snark.vlm_guts import VisionLanguageModel
-
-
-app = FastAPI(title="VLM Server", version="0.1.0")
+from voice.tts_guts import TtsSynthesizer
 
 # Lazy global for single-GPU usage
 _vlm: Optional[VisionLanguageModel] = None
@@ -32,24 +31,37 @@ def get_tts():
     if _tts is not None:
         return _tts
 
-    # Import lazily to avoid import cost when unused
-    from TTS.api import TTS  # type: ignore
-
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    tts = TTS(model_name="tts_models/en/vctk/vits", progress_bar=False).to(device)
-
-    class _Synth:
-        def synthesize_wav(self, text: str) -> bytes:
-            audio = tts.tts(text=text)
-            audio_array = np.asarray(audio, dtype=np.float32)
-            sample_rate = tts.synthesizer.output_sample_rate
-            buf = BytesIO()
-            sf.write(buf, audio_array, samplerate=sample_rate, format="WAV")
-            return buf.getvalue()
-
-    _tts = _Synth()
+    synth = TtsSynthesizer(model_name="tts_models/en/vctk/vits")
+    _tts = synth
     return _tts
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Warm VLM: small text-only inference
+    vlm = get_vlm()
+    # Load system prompt from snark/prompt.txt if present
+    try:
+        prompt_path = Path(__file__).parent / "prompt.txt"
+        if prompt_path.exists():
+            vlm.system_prompt = prompt_path.read_text(encoding="utf-8").strip()
+    except Exception:
+        pass
+    try:
+        _ = vlm.infer("Hello", image_path=None, max_new_tokens=1)
+    except Exception:
+        pass
+
+    # Warm TTS: synthesize a tiny wav
+    try:
+        _ = get_tts().synthesize_wav("Hello")
+    except Exception:
+        pass
+
+    yield
+
+
+app = FastAPI(title="VLM Server", version="0.1.0", lifespan=lifespan)
 
 @app.post("/infer/text")
 async def infer_text(
@@ -82,7 +94,8 @@ async def infer_image(
     else:
         # Save uploaded file to a temp path
         data = await image_file.read()
-        tmp_path = Path("/tmp") / image_file.filename
+        filename = image_file.filename or "upload.bin"
+        tmp_path = Path("/tmp") / filename
         tmp_path.write_bytes(data)
         image_path = str(tmp_path)
 

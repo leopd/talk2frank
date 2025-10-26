@@ -55,7 +55,18 @@ class VisionLanguageModel:
         """
         Run inference with text prompt and optional image.
         """
-        # Build messages in Qwen2.5-VL format
+        # Build messages in Qwen2.5-VL format with optional system prompt
+        messages = []
+        system_prompt = getattr(self, "system_prompt", None)
+        if system_prompt:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": str(system_prompt)},
+                    ],
+                }
+            )
         if image_path:
             # Resolve relative image paths to this module's directory for test stability
             image_path_obj = Path(image_path)
@@ -64,7 +75,7 @@ class VisionLanguageModel:
                 if candidate.exists():
                     image_path = str(candidate)
             print(f"Loading image: {image_path}")
-            messages = [
+            messages.append(
                 {
                     "role": "user",
                     "content": [
@@ -72,17 +83,17 @@ class VisionLanguageModel:
                         {"type": "text", "text": prompt},
                     ],
                 }
-            ]
+            )
         else:
             print("Text-only mode (no image)")
-            messages = [
+            messages.append(
                 {
                     "role": "user",
                     "content": [
                         {"type": "text", "text": prompt},
                     ],
                 }
-            ]
+            )
 
         print("Preprocessing...")
         text_prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)

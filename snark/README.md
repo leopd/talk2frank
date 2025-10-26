@@ -12,7 +12,7 @@ uv run pytest
 Start the FastAPI server (single-threaded GPU usage):
 
 ```
-uv run uvicorn snark.server:app --host 0.0.0.0 --port 8000
+uv run uvicorn snark.server:app --host 0.0.0.0 --port 8123
 ```
 
 ### Example requests
@@ -20,7 +20,7 @@ uv run uvicorn snark.server:app --host 0.0.0.0 --port 8000
 - Text-only inference:
 
 ```
-curl -X POST http://<server-ip>:8000/infer/text \
+curl -X POST http://$SNARK_SERVER_IP:8123/infer/text \
   -F 'prompt=What is the capital of France?' \
   -F 'max_new_tokens=50'
 ```
@@ -28,7 +28,7 @@ curl -X POST http://<server-ip>:8000/infer/text \
 - Text-to-speech (WAV response):
 
 ```
-curl -X POST http://<server-ip>:8000/infer/text \
+curl -X POST http://$SNARK_SERVER_IP:8123/infer/text \
   -F 'prompt=Say hello to my little friend' \
   -F 'response_format=wav' \
   --output reply.wav
@@ -37,7 +37,7 @@ curl -X POST http://<server-ip>:8000/infer/text \
 - Image via URL:
 
 ```
-curl -X POST http://<server-ip>:8000/infer/image \
+curl -X POST http://$SNARK_SERVER_IP:8123/infer/image \
   -F 'prompt=Describe this image' \
   -F 'image_url=https://example.com/sample.jpg' \
   -F 'max_new_tokens=50'
@@ -46,7 +46,7 @@ curl -X POST http://<server-ip>:8000/infer/image \
 - Image via URL to WAV:
 
 ```
-curl -X POST http://<server-ip>:8000/infer/image \
+curl -X POST http://$SNARK_SERVER_IP:8123/infer/image \
   -F 'prompt=Describe this image' \
   -F 'image_url=https://example.com/sample.jpg' \
   -F 'response_format=wav' \
@@ -56,7 +56,7 @@ curl -X POST http://<server-ip>:8000/infer/image \
 - Image via upload:
 
 ```
-curl -X POST http://<server-ip>:8000/infer/image \
+curl -X POST http://$SNARK_SERVER_IP:8123/infer/image \
   -F 'prompt=Describe this image' \
   -F 'image_file=@snark/sample.jpeg' \
   -F 'max_new_tokens=50'
