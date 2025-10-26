@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-from try_vlm_image import VisionLanguageModel
+from vlm_guts import VisionLanguageModel
 
 
 def test_vlm_image_mode_with_file_prompt():
