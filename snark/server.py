@@ -4,7 +4,7 @@ from typing import Optional
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 
-from vlm_guts import VisionLanguageModel
+from snark.vlm_guts import VisionLanguageModel
 
 
 app = FastAPI(title="VLM Server", version="0.1.0")

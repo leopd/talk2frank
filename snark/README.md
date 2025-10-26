@@ -7,6 +7,46 @@
 uv run pytest
 ```
 
+## Server
+
+Start the FastAPI server (single-threaded GPU usage):
+
+```
+uv run uvicorn snark.server:app --host 0.0.0.0 --port 8000
+```
+
+### Example requests
+
+- Text-only inference:
+
+```
+curl -X POST http://<server-ip>:8000/infer/text \
+  -F 'prompt=What is the capital of France?' \
+  -F 'max_new_tokens=50'
+```
+
+- Image via URL:
+
+```
+curl -X POST http://<server-ip>:8000/infer/image \
+  -F 'prompt=Describe this image' \
+  -F 'image_url=https://example.com/sample.jpg' \
+  -F 'max_new_tokens=50'
+```
+
+- Image via upload:
+
+```
+curl -X POST http://<server-ip>:8000/infer/image \
+  -F 'prompt=Describe this image' \
+  -F 'image_file=@snark/sample.jpeg' \
+  -F 'max_new_tokens=50'
+```
+
+Notes:
+- The model defaults to `Qwen/Qwen2.5-VL-7B-Instruct`.
+- File uploads require `python-multipart` (already listed as a dependency).
+
 ## To flash-attn or NOT
 
 It's a trade-off.  Flash attention is faster, but it's not always available.  And can be difficult to install.

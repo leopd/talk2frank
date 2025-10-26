@@ -1,7 +1,7 @@
 import subprocess
 import sys
 
-from vlm_guts import VisionLanguageModel
+from snark.vlm_guts import VisionLanguageModel
 
 
 def test_vlm_image_mode_with_file_prompt():

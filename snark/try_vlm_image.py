@@ -2,7 +2,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from vlm_guts import VisionLanguageModel
+from snark.vlm_guts import VisionLanguageModel
 
 
 def main():
