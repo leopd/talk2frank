@@ -30,6 +30,18 @@ def main():
         help="Maximum number of tokens to generate (default: 200)",
     )
     parser.add_argument(
+        "--temperature",
+        type=float,
+        default=1.1,
+        help="Sampling temperature (default: 1.1)",
+    )
+    parser.add_argument(
+        "--top-p",
+        type=float,
+        default=0.95,
+        help="Nucleus sampling top-p (default: 0.95)",
+    )
+    parser.add_argument(
         "--model",
         type=str,
         default="Qwen/Qwen2.5-VL-7B-Instruct",
@@ -72,7 +84,14 @@ def main():
     
     # Load model and run inference
     vlm = VisionLanguageModel(model_name=args.model, flash_attn=args.flash_attn)
-    result = vlm.infer(prompt, image_path=image_path, max_new_tokens=args.max_tokens)
+    result = vlm.infer(
+        prompt,
+        image_path=image_path,
+        max_new_tokens=args.max_tokens,
+        temperature=args.temperature,
+        top_p=args.top_p,
+        do_sample=True,
+    )
     
     print("\n--- Output ---")
     print(result)

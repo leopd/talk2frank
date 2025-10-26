@@ -15,6 +15,19 @@ Start the FastAPI server (single-threaded GPU usage):
 uv run uvicorn snark.server:app --host 0.0.0.0 --port 8123
 ```
 
+It defaults to using the 7B model.  To use a different model, set the `VLM_SIZE` environment variable.
+```
+export VLM_SIZE="32B"
+```
+
+I think the other valid size is 72B, but you'll need multiple large GPUs to run it.
+
+
+To use the 14B model, set the `VLM_SIZE` environment variable to `14B`.
+```
+export VLM_SIZE="14B"
+uv run uvicorn snark.server:app --host 0.0.0.0 --port 8123
+```
 ### Example requests
 
 - Text-only inference:

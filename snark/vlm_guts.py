@@ -1,4 +1,5 @@
 from pathlib import Path
+import time
 from typing import Optional
 
 import torch
@@ -51,11 +52,20 @@ class VisionLanguageModel:
         )
         print(f"Model loaded on device: {self.model.device}")
 
-    def infer(self, prompt: str, image_path: Optional[str] = None, max_new_tokens: int = 200) -> str:
+    def infer(
+        self,
+        prompt: str,
+        image_path: Optional[str] = None,
+        max_new_tokens: int = 200,
+        temperature: float = 1.1,
+        top_p: float = 0.95,
+        do_sample: bool = True,
+    ) -> str:
         """
         Run inference with text prompt and optional image.
         """
         # Build messages in Qwen2.5-VL format with optional system prompt
+        start_time = time.time()
         messages = []
         system_prompt = getattr(self, "system_prompt", None)
         if system_prompt:
@@ -85,7 +95,7 @@ class VisionLanguageModel:
                 }
             )
         else:
-            print("Text-only mode (no image)")
+            print(f"VLM text input: {prompt}")
             messages.append(
                 {
                     "role": "user",
@@ -95,7 +105,6 @@ class VisionLanguageModel:
                 }
             )
 
-        print("Preprocessing...")
         text_prompt = self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         vision_info = process_vision_info(messages)
         if isinstance(vision_info, tuple) and len(vision_info) == 3:
@@ -115,8 +124,13 @@ class VisionLanguageModel:
             processor_kwargs["audios"] = audio_inputs
         inputs = self.processor(**processor_kwargs).to(self.model.device)
 
-        print("Generating output...")
-        output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
+        output_ids = self.model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=do_sample,
+            temperature=float(temperature),
+            top_p=float(top_p),
+        )
 
         generated_ids = [
             output_ids[len(input_ids):]
@@ -126,6 +140,8 @@ class VisionLanguageModel:
         result = self.processor.batch_decode(
             generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False
         )[0]
+        elapsed = time.time() - start_time
+        print(f"VLM inference took {elapsed:.2f} seconds")
         return result
 
 

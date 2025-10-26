@@ -9,7 +9,15 @@ from snark import server
 
 
 class StubVLM:
-    def infer(self, prompt: str, image_path: Optional[str] = None, max_new_tokens: int = 200) -> str:
+    def infer(
+        self,
+        prompt: str,
+        image_path: Optional[str] = None,
+        max_new_tokens: int = 200,
+        temperature: float = 1.0,
+        top_p: float = 1.0,
+        do_sample: bool = False,
+    ) -> str:
         if image_path:
             return f"IMG:{prompt[:10]}:{max_new_tokens}"
         return f"TXT:{prompt[:10]}:{max_new_tokens}"

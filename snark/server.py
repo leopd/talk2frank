@@ -1,7 +1,8 @@
+from contextlib import asynccontextmanager
 from io import BytesIO
+from os import environ
 from pathlib import Path
 from typing import Optional
-from contextlib import asynccontextmanager
 
 import numpy as np
 import soundfile as sf
@@ -18,10 +19,10 @@ _tts = None  # Lazy-initialized TTS instance
 
 
 def get_vlm() -> VisionLanguageModel:
-    global _vlm
+    global _vlm  # Single-threaded, single instance due to CUDA
     if _vlm is None:
-        # Single-threaded, single instance due to CUDA
-        _vlm = VisionLanguageModel()
+        size = environ.get("VLM_SIZE", "7B")
+        _vlm = VisionLanguageModel(model_name=f"Qwen/Qwen2.5-VL-{size}-Instruct")
     return _vlm
 
 
@@ -67,10 +68,19 @@ app = FastAPI(title="VLM Server", version="0.1.0", lifespan=lifespan)
 async def infer_text(
     prompt: str = Form(...),
     max_new_tokens: int = Form(200),
+    temperature: float = Form(1.1),
+    top_p: float = Form(0.95),
     response_format: str = Form("text"),  # "text" or "wav"
 ):
     vlm = get_vlm()
-    result = vlm.infer(prompt, image_path=None, max_new_tokens=max_new_tokens)
+    result = vlm.infer(
+        prompt,
+        image_path=None,
+        max_new_tokens=max_new_tokens,
+        temperature=float(temperature),
+        top_p=float(top_p),
+        do_sample=True,
+    )
     if response_format == "wav":
         wav_bytes = get_tts().synthesize_wav(result)
         return Response(content=wav_bytes, media_type="audio/wav")
@@ -83,6 +93,8 @@ async def infer_image(
     max_new_tokens: int = Form(200),
     image_url: Optional[str] = Form(None),
     image_file: Optional[UploadFile] = File(None),
+    temperature: float = Form(1.1),
+    top_p: float = Form(0.95),
     response_format: str = Form("text"),
 ):
     if not image_url and not image_file:
@@ -100,7 +112,14 @@ async def infer_image(
         image_path = str(tmp_path)
 
     vlm = get_vlm()
-    result = vlm.infer(prompt, image_path=image_path, max_new_tokens=max_new_tokens)
+    result = vlm.infer(
+        prompt,
+        image_path=image_path,
+        max_new_tokens=max_new_tokens,
+        temperature=float(temperature),
+        top_p=float(top_p),
+        do_sample=True,
+    )
     if response_format == "wav":
         wav_bytes = get_tts().synthesize_wav(result)
         return Response(content=wav_bytes, media_type="audio/wav")
