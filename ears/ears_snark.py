@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 import argparse
+import io
 import os
 import sys
+import traceback
 from typing import Optional
 
 import numpy as np
 import requests
 import sounddevice as sd
+import soundfile as sf
 
 from .ear_guts import WhisperStreamer
 
@@ -24,23 +27,34 @@ def parse_args():
     return parser.parse_args()
 
 
-def post_phrase_and_play(snark_url: str, text: str):
+def post_phrase_and_play(base_url: str, text: str):
+    url = f"{base_url.rstrip('/')}/infer/text"
     response = requests.post(
-        f"{snark_url.rstrip('/')}/api/tts",
-        json={"text": text},
-        timeout=30,
+        url,
+        data={
+            "prompt": text,
+            "max_new_tokens": 200,
+            "response_format": "wav",
+        },
+        timeout=60,
     )
-    response.raise_for_status()
+    if not response.ok:
+        details = response.text[:256]
+        ct = response.headers.get("Content-Type", "")
+        raise RuntimeError(f"HTTP {response.status_code} from {url} (Content-Type: {ct}): {details}")
+    print(f"[snark] got response {response.status_code}")
 
     audio_bytes = response.content
-    audio_array = np.frombuffer(audio_bytes, dtype=np.float32)
-    sr_header: Optional[str] = response.headers.get("X-Audio-Sample-Rate")
-    if not sr_header:
-        raise RuntimeError("Snark server did not include X-Audio-Sample-Rate header")
-    sample_rate = int(sr_header)
+    wav_io = io.BytesIO(audio_bytes)
+    audio_array, sample_rate = sf.read(wav_io, dtype="float32")
+    if audio_array.ndim > 1:
+        audio_array = audio_array[:, 0]
 
+    audio_length_seconds = audio_array.shape[0] / sample_rate
+    print(f"[snark] playing audio {audio_length_seconds:.1f} seconds")
     sd.play(audio_array, samplerate=sample_rate)
     sd.wait()
+    print(f"[snark] done playing audio")
 
 
 def main():
@@ -69,8 +83,10 @@ def main():
         if len(text) < args.min_phrase_len:
             continue
         try:
+            print(f"[snark] captured: {text}")
             post_phrase_and_play(snark_url, text)
         except Exception as exc:
+            traceback.print_exc()
             print(f"Error contacting snark server: {exc}", file=sys.stderr)
 
 
