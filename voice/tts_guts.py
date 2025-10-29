@@ -13,9 +13,8 @@ except Exception:  # pragma: no cover - import tested indirectly
 
 
 PREFERRED_SPEAKERS: list[str] = [
-    "p298",
     "p260",
-    "p255",
+    #"p299",
 ]
 
 
@@ -23,9 +22,12 @@ class TtsSynthesizer:
     def __init__(
         self,
         model_name: str = "tts_models/en/vctk/vits",
-        pitch_down_steps: int = 5,
-        distortion_gain: float = 1.4,
-        output_sample_rate_factor: float = 0.6,
+        #pitch_down_steps: int = -5,
+        #distortion_gain: float = 5.0,
+        #output_sample_rate_factor: float = 0.75,
+        pitch_down_steps: int = -2,
+        distortion_gain: float = 5.0,
+        output_sample_rate_factor: float = 0.85,
     ):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         if TTS is None:
@@ -61,11 +63,12 @@ class TtsSynthesizer:
         This centralizes speaker selection, post-processing, and slowdown rate.
         """
         effective_speaker = speaker or self.pick_speaker(getattr(self._tts, "speakers", None)) or None
-        audio = (
-            self._tts.tts(text=text, speaker=effective_speaker)
-            if effective_speaker
-            else self._tts.tts(text=text)
-        )
+        tts_args = {
+            "text": text,
+        }
+        if effective_speaker:
+            tts_args["speaker"] = effective_speaker
+        audio = self._tts.tts(**tts_args)
         audio_array = np.asarray(audio, dtype=np.float32)
         sample_rate = int(self._tts.synthesizer.output_sample_rate)
         processed = self._process_audio(audio_array, sample_rate)

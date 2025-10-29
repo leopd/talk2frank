@@ -1,5 +1,11 @@
 # Snark - the so-called "brains" of the operation
 
+This works at 30tps!
+
+```
+VLLM_GPU_MEM_UTILIZATION=0.55 VLLM_TP_SIZE=2 CUDA_VISIBLE_DEVICES=1,3 VLM_SIZE=32B time uv run python benchmark_vlm.py --max-tokens 600
+```
+
 
 ## Testing
 

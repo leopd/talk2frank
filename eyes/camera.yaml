@@ -1,0 +1,17 @@
+# Auto-discovered 2 camera(s).
+image_sources:
+- crop: null
+  digital_zoom: null
+  fourcc: null
+  fps: null
+  id:
+    serial_number: A241227001826407
+  input_type: generic_usb
+  name: generic_usb_unnamed_1
+  options:
+    rotation:
+      num_90_deg_rotations: 0
+    video_stream: false
+  resolution_height: null
+  resolution_width: null
+

@@ -10,7 +10,7 @@ import torch
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse, Response
 
-from snark.vlm_guts import VisionLanguageModel
+from vlm_guts import VisionLanguageModel
 from voice.tts_guts import TtsSynthesizer
 
 # Lazy global for single-GPU usage

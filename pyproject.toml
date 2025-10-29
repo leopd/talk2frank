@@ -22,6 +22,7 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
     "python-multipart>=0.0.12",
     "TTS>=0.22",
+    "framegrab>=0.14.0",
 ]
 
 [dependency-groups]

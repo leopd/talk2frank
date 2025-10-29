@@ -11,31 +11,26 @@ We use PipeWire as the microphone backend, which speaks the PulseAudio protocol.
 ./setup.sh
 ```
 
+Note: Building whisper-cpp needs CUDA and a lot of RAM.  At least 24GB (CPU RAM) - turn on swap!
+
 ## Run
 
 ```
 python mic_stream_whisper.py
 ```
 
-### Snark mode
+### Snark mode (client)
 
-`ears_snark.sh` captures phrases and sends them to a remote snark server, then plays the returned audio.
+`ears_snark.sh` captures phrases and sends them to a running snark server, then plays the returned audio.
 
-Environment variables:
-
-- `SNARK_SERVER_URL`: Base URL of the snark server, e.g. `https://snark.example.com`
-
-Example:
+Minimal usage:
 
 ```
-export SNARK_SERVER_URL="https://snark.example.com"
+export SNARK_SERVER_URL="http://localhost:8123"
 ./ears_snark.sh --model tiny.en --device cuda
 ```
 
-Protocol:
-
-- Client POSTs to `${SNARK_SERVER_URL}/infer/text` with form fields `prompt`, `max_new_tokens`, and `response_format=wav`.
-- Response: audio/wav; client decodes and plays automatically.
+For server endpoint details and curl examples, see `../snark/README.md`.
 
 ## Troubleshooting
 

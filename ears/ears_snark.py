@@ -14,7 +14,7 @@ import soundfile as sf
 
 from .ear_guts import WhisperStreamer
 
-MAX_AUDIO_LENGTH_SECONDS = 20
+MAX_AUDIO_LENGTH_SECONDS = 30
 
 
 def parse_args():
@@ -57,7 +57,7 @@ def post_phrase_and_play(base_url: str, text: str):
 
     audio_length_seconds = audio_array.shape[0] / sample_rate
     if audio_length_seconds > MAX_AUDIO_LENGTH_SECONDS:
-        # Clipping audio
+        # Shorten audio.
         audio_array = audio_array[:int(sample_rate * MAX_AUDIO_LENGTH_SECONDS)]
         sample_rate = int(sample_rate * 10 / audio_array.shape[0])
     print(f"[snark] playing audio {audio_length_seconds:.1f} seconds")
@@ -87,10 +87,16 @@ def main():
     print("Listening. Ctrl+C to stop.")
     while True:
         streamer.reset()
+        # We reset the streamer and tell it to quit after every text.
+        # Otherwise, it will hear its own voice, and get stuck in a loop.
         for event in streamer.stream_events(yield_blanks=True, quit_after_text_count=1):
             if not event.transcript:
                 continue
             text = event.transcript.strip()
+            if "thank you" in text.lower():
+                # This seems to be an ASR bug - it thinks it hears "thank you" when there's no spoken words.
+                print(f"[ears] ignoring text \"{text}\"")
+                continue
             print(f"[ears] captured raw: {text}")
             if not text:
                 continue
